@@ -1,0 +1,51 @@
+# Based on:
+#   https://forum.crystal-lang.org/t/the-easiest-way-to-prepare-a-ready-to-use-windows-executable-on-linux/7040/4
+
+name: Crystal CI
+
+on:
+  push:
+    branches: [ "main" ]
+  pull_request:
+    branches: [ "main" ]
+
+jobs:
+  build_release:
+    name: Build Release ${{ matrix.os }}
+    strategy:
+      matrix:
+        os: [ubuntu, windows]
+    runs-on: ${{ matrix.os }}-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Install Crystal
+        uses: crystal-lang/install-crystal@v1
+        with:
+          crystal: latest
+
+      - name: Run Linux Build
+        if: matrix.os == 'ubuntu'
+        run: |
+          mkdir -p bin
+          chmod 755 bin
+          docker run -d --name alpine -v $(pwd):/workspace -w /workspace crystallang/crystal:latest-alpine tail -f /dev/null
+          docker exec alpine shards install --without-development --release --static
+          docker exec alpine shards build --release --static
+          docker exec alpine mv bin/parkedcar-gen bin/parkedcar-gen-linux
+
+      - name: Run Windows Build x64
+        if: matrix.os == 'windows'
+        run: |
+          shards build --release --static
+          Set-ExecutionPolicy RemoteSigned -Scope Process
+          Rename-Item -Path bin/parkedcar-gen.exe -NewName parkedcar-gen-windows.exe
+
+      - name: Upload Release Asset
+        uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            bin/parkedcar-gen-linux
+            bin/parkedcar-gen-windows.exe
+          tag_name: rolling
