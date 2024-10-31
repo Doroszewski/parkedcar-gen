@@ -1,0 +1,6 @@
+name: "Parked Car Pathset Generator"
+version: 0.1.0
+
+targets:
+  parkedcar-gen:
+    main: src/main.cr
